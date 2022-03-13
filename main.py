@@ -4,11 +4,15 @@
 ###############################################
 ##      Open CV and Numpy integration        ##
 ###############################################
+import time
 
 import pyrealsense2 as rs
 import numpy as np
 import cv2
 import copy
+
+from detector import build_default_detector
+from yamppe3d import get_root_pose_net
 
 # Configure depth and color streams
 pipeline = rs.pipeline()
@@ -37,6 +41,15 @@ src = np.float32([[74, 109], [37, 654], [841, 128], [833, 706]]) / 1.5
 dst = np.float32([[201, 206], [177, 541], [691, 217], [677, 578]]) / 1.5
 perspective_matrix = cv2.getPerspectiveTransform(src, dst)
 
+# build detector
+detector = build_default_detector()
+posenet = get_root_pose_net(
+    r"C:\Users\Bangwen\PycharmProjects\moon_pose_estimation_setup\snapshot_18.pth.tar",
+    r"C:\Users\Bangwen\PycharmProjects\moon_pose_estimation_setup\snapshot_24.pth.tar")
+
+bbox_threshold = 0.5
+run_model = True
+
 # Start streaming
 pipeline.start(config)
 depths = []
@@ -55,19 +68,34 @@ try:
         depth_image = np.asanyarray(depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
 
+        if run_model:
+            start = time.time()
+
+            meta, bboxes = detector.inference(color_image)
+            vis_image = detector.visualize(bboxes[0], meta, detector.cfg.class_names, bbox_threshold)
+
+            if len(bboxes[0][0]) > 0:
+                root_depth_list, output_pose_2d, output_pose_3d = posenet.inference(color_image, bboxes[0][0], bbox_threshold)
+                vis_image = posenet.visualize(vis_image, output_pose_2d)
+
+            end = time.time()
+            print(f" pipeline time: {end - start:.3f}s | persons: {len(bboxes[0][0])}")
+        else:
+            vis_image = color_image
+
         # add depths into list
         depths.append(copy.deepcopy(depth_image))
 
         # Apply colormap on depth image (image must be converted to 8-bit per pixel first)
         depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_TURBO)
         # color_image = cv2.warpAffine(color_image, affine_matrix, (640, 480))
-        color_image = cv2.warpPerspective(color_image, perspective_matrix, (640, 480))
+        vis_image = cv2.warpPerspective(vis_image, perspective_matrix, (640, 480))
 
-        images = cv2.addWeighted(color_image, 0.7, depth_colormap, 0.3, 0.0)
+        hybrid_image = cv2.addWeighted(vis_image, 0.7, depth_colormap, 0.3, 0.0)
 
         # Show images
         cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('RealSense', images)
+        cv2.imshow('RealSense', hybrid_image)
         cv2.waitKey(1)
 
 finally:
