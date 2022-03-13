@@ -61,10 +61,7 @@ class NanodetDetector(object):
         return result_img
 
 
-def build_default_detector(
-        config_filepath="nanodet-m.yml",
-        ckpt_filepath="nanodet_m.ckpt",
-        device="cuda:0") -> NanodetDetector:
+def build_default_detector(config_filepath, ckpt_filepath, device) -> NanodetDetector:
     load_config(cfg, config_filepath)
     logger = Logger(0, use_tensorboard=False)
     detector = NanodetDetector(cfg, ckpt_filepath, logger, device=device)
