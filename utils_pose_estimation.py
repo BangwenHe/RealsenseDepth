@@ -36,6 +36,7 @@ def pixel2cam(pixel_coord, depth, f, c):
     return cam_coord
 
 def draw_skeleton(img, keypoints, scores, kp_thres = 0.02):
+    vis_img = img.copy()
 
     for i, segment in enumerate(skeleton):
         point1_id = segment[0]
@@ -44,9 +45,9 @@ def draw_skeleton(img, keypoints, scores, kp_thres = 0.02):
         point1 = (int(keypoints[point1_id, 0]), int(keypoints[point1_id, 1]))
         point2 = (int(keypoints[point2_id, 0]), int(keypoints[point2_id, 1]))
 
-        img = cv2.line(img, point1, point2,colors_cv[i], thickness=3, lineType=cv2.LINE_AA)
-        cv2.circle(img, point1, radius=5, color=colors_cv[i], thickness=-1, lineType=cv2.LINE_AA)
-        cv2.circle(img, point2, radius=5, color=colors_cv[i], thickness=-1, lineType=cv2.LINE_AA)
+        vis_img = cv2.line(vis_img, point1, point2,colors_cv[i], thickness=3, lineType=cv2.LINE_AA)
+        cv2.circle(vis_img, point1, radius=5, color=colors_cv[i], thickness=-1, lineType=cv2.LINE_AA)
+        cv2.circle(vis_img, point2, radius=5, color=colors_cv[i], thickness=-1, lineType=cv2.LINE_AA)
 
         ''' In case confidence is used 
         if scores[point1_id] > kp_thres and scores[point2_id] > kp_thres:
@@ -60,7 +61,7 @@ def draw_skeleton(img, keypoints, scores, kp_thres = 0.02):
 
         '''
 
-    return img
+    return vis_img
 
 def draw_heatmap(img, img_heatmap):
 
