@@ -12,6 +12,7 @@ def parse_args():
 
     parser.add_argument("--video_filepath", type=str, required=True, help="path to save rgb video")
     parser.add_argument("--npy_filepath", type=str, required=True, help="path to save depth npy data")
+    parser.add_argument("--num_frames", type=int, default=1000, help="number of capture frames")
 
     return parser.parse_args()
 
@@ -54,8 +55,14 @@ if __name__ == "__main__":
     perspective_matrix = cv2.getPerspectiveTransform(src, dst)
 
     # Start streaming
-    pipeline.start(config)
+    cfg = pipeline.start(config)
     depths = []
+
+    streams = cfg.get_stream(rs.stream.color).as_video_stream_profile()
+    intrinsics = streams.get_intrinsics()
+
+    # Print information about both cameras
+    print("Intrinsics:",  intrinsics)
 
     video_resolution = (640, 480)
     video_fps = 30
@@ -63,7 +70,7 @@ if __name__ == "__main__":
     video_writer = cv2.VideoWriter(video_filepath, video_cc, video_fps, video_resolution)
 
     i = 0
-    max_frames = 1000
+    max_frames = args.num_frames
 
     try:
         while True:
