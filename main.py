@@ -18,36 +18,7 @@ from detector import build_default_detector
 from yamppe3d import get_root_pose_net
 from mobile_human_pose import MobileHumanPose
 from utils_pose_estimation import draw_skeleton
-
-
-def gather_depth_by_idx(depth_map: np.ndarray, idx_2d: np.ndarray):
-    assert len(idx_2d.shape) == 3, f"{idx_2d.shape} should be 3, now {len(idx_2d.shape)}"
-    num_person, num_keypoints, num_axis = idx_2d.shape
-
-    person_depth = np.zeros((num_person, num_keypoints))
-    for i in range(num_person):
-        for j in range(num_keypoints):
-            person_depth[i][j] = depth_map[idx_2d[i][j][1]][idx_2d[i][j][0]]
-
-    return person_depth
-
-
-def perspective_transform(perspective_matrix, persons_poses):
-    """
-    https://stackoverflow.com/questions/53861636/how-can-i-implement-opencvs-perspectivetransform-in-python
-    """
-    assert len(persons_poses.shape) == 3, f"len({persons_poses.shape}) should be 3, now {len(persons_poses.shape)}"
-    num_person, num_keypoints, num_axis = persons_poses.shape
-
-    target_poses = np.zeros_like(persons_poses)
-    for i in range(num_person):
-        transpose_keypoints = np.concatenate((persons_poses[i], np.ones((num_keypoints, 1))), axis=1)
-        target_homo_keypoints = transpose_keypoints.dot(perspective_matrix)
-        target_keypoints = target_homo_keypoints[:, :2] / target_homo_keypoints[:, 2].reshape((-1, 1))
-
-        target_poses[i] = target_keypoints
-
-    return target_poses
+from utils_camera import get_realsense_perspective_matrix, perspective_transform, gather_depth_by_idx
 
 
 def main():
@@ -74,9 +45,7 @@ def main():
     config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
-    src = np.float32([[74, 109], [37, 654], [841, 128], [833, 706]]) / 1.5
-    dst = np.float32([[201, 206], [177, 541], [691, 217], [677, 578]]) / 1.5
-    perspective_matrix = cv2.getPerspectiveTransform(src, dst)
+    perspective_matrix = get_realsense_perspective_matrix()
 
     # build detector
     detector = build_default_detector("nanodet-m.yml", "nanodet_m.ckpt", "cuda:0")
@@ -125,7 +94,7 @@ def main():
 
                     for i, bbox in enumerate(filtered_bbox):
                         # Draw the estimated pose
-                        keypoints, pose_3d, person_heatmap, scores = pose_mhp(color_image, bbox, 1)
+                        keypoints, pose_3d, scores = pose_mhp(color_image, bbox, 1)
                         vis_image_mhp = draw_skeleton(vis_image, keypoints, bbox[:2], scores)
 
                     pose_results, returned_outputs = inference_bottom_up_pose_model(

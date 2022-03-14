@@ -25,14 +25,12 @@ def crop_image(image, bbox):
 
     return input_image
 
-def pixel2cam(pixel_coord, depth, f, c):
-
-    # TODO: Fix deprojection of 2D joints
-    # x = (pixel_coord[:, 0] - c[0]) / f[0] * depth
-    # y = (pixel_coord[:, 1] - c[1]) / f[1] * depth
-    # z = depth
-    # cam_coord = np.concatenate((x[:,None], y[:,None], z[:,None]),1)
-    cam_coord = np.concatenate((pixel_coord[:, 0][:,None], pixel_coord[:, 1][:,None], depth[:,None]),1)
+def pixel2cam(pixel_coord, f, c):
+    # use original `pixel2cam` function with accurate focals and principals
+    x = (pixel_coord[:, 0] - c[0]) / f[0] * pixel_coord[:, 2]
+    y = (pixel_coord[:, 1] - c[1]) / f[1] * pixel_coord[:, 2]
+    z = pixel_coord[:, 2]
+    cam_coord = np.concatenate((x[:,None], y[:,None], z[:,None]),1)
     return cam_coord
 
 def draw_skeleton(img, keypoints, scores, kp_thres = 0.02):

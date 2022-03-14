@@ -78,8 +78,6 @@ class RootPoseNet(object):
             # forward
             with torch.no_grad():
                 root_3d = self.rootnet(img, k_value)  # x,y: pixel, z: root-relative depth (mm)
-
-            with torch.no_grad():
                 pose_3d = self.posenet(img)  # x,y: pixel, z: root-relative depth (mm)
 
             img = img[0].cpu().numpy()
