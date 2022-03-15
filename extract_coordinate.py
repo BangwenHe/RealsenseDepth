@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-img = cv2.imread("C:/Users/Bangwen/Desktop/Snipaste_2022-03-11_20-05-33.png")
+img = cv2.imread("images/Snipaste_2022-03-15_17-04-42.png")
 
 
 def on_EVENT_LBUTTONDOWN(event, x, y, flags, param):
@@ -17,7 +17,7 @@ cv2.namedWindow("image")
 cv2.setMouseCallback("image", on_EVENT_LBUTTONDOWN)
 cv2.imshow("image", img)
 
-while (True):
+while True:
     try:
         cv2.waitKey(100)
     except Exception:

@@ -6,6 +6,8 @@ import cv2
 import numpy as np
 import pyrealsense2 as rs
 
+from utils_camera import get_realsense_perspective_matrix
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="capture rgb image and depth data from realsense camera")
@@ -13,6 +15,8 @@ def parse_args():
     parser.add_argument("--video_filepath", type=str, required=True, help="path to save rgb video")
     parser.add_argument("--npy_filepath", type=str, required=True, help="path to save depth npy data")
     parser.add_argument("--num_frames", type=int, default=1000, help="number of capture frames")
+    parser.add_argument("--override", action="store_true", help="whether to override the video file and npy file")
+    parser.add_argument("--vertical", action="store_true", help="whether the camera is vertical")
 
     return parser.parse_args()
 
@@ -24,8 +28,11 @@ if __name__ == "__main__":
     os.makedirs(Path(video_filepath).parent, exist_ok=True)
     os.makedirs(Path(npy_filepath).parent, exist_ok=True)
 
-    assert not os.path.exists(video_filepath), f"{os.path.abspath(video_filepath)} already exists"
-    assert not os.path.exists(npy_filepath), f"{os.path.abspath(npy_filepath)} already exists"
+    if not args.override:
+        assert not os.path.exists(video_filepath), f"{os.path.abspath(video_filepath)} already exists"
+        assert not os.path.exists(npy_filepath), f"{os.path.abspath(npy_filepath)} already exists"
+
+    is_camera_vertical = args.vertical
 
     # Configure depth and color streams
     pipeline = rs.pipeline(rs.context())
@@ -50,9 +57,7 @@ if __name__ == "__main__":
     config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
-    src = np.float32([[74, 109], [37, 654], [841, 128], [833, 706]]) / 1.5
-    dst = np.float32([[201, 206], [177, 541], [691, 217], [677, 578]]) / 1.5
-    perspective_matrix = cv2.getPerspectiveTransform(src, dst)
+    perspective_matrix = get_realsense_perspective_matrix(is_vertical=is_camera_vertical)
 
     # Start streaming
     cfg = pipeline.start(config)
@@ -64,7 +69,10 @@ if __name__ == "__main__":
     # Print information about both cameras
     print("Intrinsics:",  intrinsics)
 
-    video_resolution = (640, 480)
+    if is_camera_vertical:
+        video_resolution = (480, 640)
+    else:
+        video_resolution = (640, 480)
     video_fps = 30
     video_cc = cv2.VideoWriter_fourcc(*"mp4v")
     video_writer = cv2.VideoWriter(video_filepath, video_cc, video_fps, video_resolution)
@@ -84,6 +92,10 @@ if __name__ == "__main__":
             # Convert images to numpy arrays
             depth_image = np.asanyarray(depth_frame.get_data())
             color_image = np.asanyarray(color_frame.get_data())
+            if is_camera_vertical:
+                depth_image = np.rot90(depth_image)
+                color_image = np.rot90(color_image)
+
             # add depths into list
             depths.append(depth_image.copy())
 

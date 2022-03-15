@@ -5,9 +5,24 @@ from matplotlib.pyplot import axis
 import numpy as np
 
 
-def get_realsense_perspective_matrix():
+def get_realsense_perspective_matrix(is_vertical=True):
+    if is_vertical:
+        return get_realsense_perspective_matrix_vertical()
+    else:
+        return get_realsense_perspective_matrix_horizontal()
+
+
+def get_realsense_perspective_matrix_horizontal():
     src = np.float32([[74, 109], [37, 654], [841, 128], [833, 706]]) / 1.5
     dst = np.float32([[201, 206], [177, 541], [691, 217], [677, 578]]) / 1.5
+    perspective_matrix = cv2.getPerspectiveTransform(src, dst)
+
+    return perspective_matrix
+
+
+def get_realsense_perspective_matrix_vertical():
+    src = np.float32([[79, 41], [75, 796], [585, 801], [621, 72]]) / 1.5
+    dst = np.float32([[182, 221], [179, 700], [503, 699], [525, 246]]) / 1.5
     perspective_matrix = cv2.getPerspectiveTransform(src, dst)
 
     return perspective_matrix
@@ -59,7 +74,7 @@ def merge_keypoints(keypoints, dataset_type: str):
     elif dataset_type == "muco":
         keypoints_head = keypoints[:, :, 16]
         rearrange_idx = np.array([5, 2, 6, 3, 7, 4, 11, 8, 12, 9, 13, 10])
-        keypoints_limb = keypoints_limb[:, :, rearrange_idx]
+        keypoints_limb = keypoints[:, :, rearrange_idx]
     elif dataset_type == "mpii":
         keypoints_head = np.mean([keypoints[:, :, 8:10]], axis=2)
         rearrange_idx = np.array([13, 12, 14, 11, 15, 10, 3, 2, 4, 1, 5, 0])
