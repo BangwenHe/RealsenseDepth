@@ -1,5 +1,15 @@
 .idea/
 
 *.npy
+*.zip
+*.tflite
+*.onnx
+*.ckpt
+*.yml
+*.mp4
 
 data/
+
+output*/
+
+__pycache__/

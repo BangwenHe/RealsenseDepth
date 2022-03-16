@@ -21,8 +21,10 @@ def get_realsense_perspective_matrix_horizontal():
 
 
 def get_realsense_perspective_matrix_vertical():
-    src = np.float32([[79, 41], [75, 796], [585, 801], [621, 72]]) / 1.5
-    dst = np.float32([[182, 221], [179, 700], [503, 699], [525, 246]]) / 1.5
+    # src = np.float32([[79, 41], [75, 796], [585, 801], [621, 72]]) / 1.5
+    # dst = np.float32([[182, 221], [179, 700], [503, 699], [525, 246]]) / 1.5
+    src = np.float32([[31, 390], [38, 640], [421, 390], [424, 631]]) / 1.5
+    dst = np.float32([[155, 424], [159, 579], [397, 427], [397, 576]]) / 1.5
     perspective_matrix = cv2.getPerspectiveTransform(src, dst)
 
     return perspective_matrix
@@ -67,18 +69,23 @@ def merge_keypoints(keypoints, dataset_type: str):
     assert dataset_type in ("coco", "muco", "mpii"), f"dataset_type should be one of coco, muco or mpii, now {dataset_type}"
 
     if dataset_type == "coco":
-        # calculate mean value for ears
-        keypoints_head = np.mean(keypoints[:, :, 3:5], axis=2)
-        # keep coordinate data of limbs
-        keypoints_limb = keypoints[:, :, 5:]
+        keypoints_thorax = np.mean(keypoints[:, 5:7], axis=1)
+        keypoints_head = np.mean(keypoints[:, 3:5], axis=1)
+        keypoints_head_top = keypoints_thorax + (keypoints_head - keypoints_thorax) * 2
+        rearrange_idx = np.array([5, 7, 9, 6, 8, 10, 11, 13, 15, 12, 14, 16])
+        keypoints_limb = keypoints[:, rearrange_idx]
     elif dataset_type == "muco":
-        keypoints_head = keypoints[:, :, 16]
-        rearrange_idx = np.array([5, 2, 6, 3, 7, 4, 11, 8, 12, 9, 13, 10])
-        keypoints_limb = keypoints[:, :, rearrange_idx]
+        keypoints_head = keypoints[:, 16]
+        keypoints_thorax = keypoints[:, 1]
+        keypoints_head_top = keypoints[:, 0]
+        rearrange_idx = np.array([5, 6, 7, 2, 3, 4, 11, 12, 13, 8, 9, 10])
+        keypoints_limb = keypoints[:, rearrange_idx]
     elif dataset_type == "mpii":
-        keypoints_head = np.mean([keypoints[:, :, 8:10]], axis=2)
-        rearrange_idx = np.array([13, 12, 14, 11, 15, 10, 3, 2, 4, 1, 5, 0])
-        keypoints_limb = keypoints[:, :, rearrange_idx]
+        keypoints_head = np.mean([keypoints[:, 8:10]], axis=2)
+        keypoints_thorax = keypoints[:, 7]
+        keypoints_head_top = keypoints[:, 9]
+        rearrange_idx = np.array([15, 14, 13, 12, 11, 10, 5, 4, 3, 2, 1, 0])
+        keypoints_limb = keypoints[:, rearrange_idx]
 
-    keypoints = np.concatenate([keypoints_head, keypoints_limb], axis=2)
+    keypoints = np.hstack([keypoints_head_top[:, np.newaxis, :], keypoints_thorax[:, np.newaxis, :], keypoints_limb])
     return keypoints

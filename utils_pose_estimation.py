@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 joints_name = ('Head_top', 'Thorax', 'R_Shoulder', 'R_Elbow', 'R_Wrist', 'L_Shoulder', 'L_Elbow', 'L_Wrist', 'R_Hip', 'R_Knee', 'R_Ankle', 'L_Hip', 'L_Knee', 'L_Ankle', 'Pelvis', 'Spine', 'Head', 'R_Hand', 'L_Hand', 'R_Toe', 'L_Toe')
 joint_num = len(joints_name) # 21
-skeleton = ( (0, 16), (16, 1), (1, 15), (15, 14), (14, 8), (14, 11), (8, 9), (9, 10), (10, 19), (11, 12), (12, 13), (13, 20), (1, 2), (2, 3), (3, 4), (4, 17), (1, 5), (5, 6), (6, 7), (7, 18) )
+SKELETON = ( (0, 16), (16, 1), (1, 15), (15, 14), (14, 8), (14, 11), (8, 9), (9, 10), (10, 19), (11, 12), (12, 13), (13, 20), (1, 2), (2, 3), (3, 4), (4, 17), (1, 5), (5, 6), (6, 7), (7, 18) )
 
 cmap = plt.get_cmap('rainbow')
 colors = [cmap(i) for i in np.linspace(0, 1, joint_num + 2)]
@@ -36,7 +36,7 @@ def pixel2cam(pixel_coord, f, c):
 def draw_skeleton(img, keypoints, scores, kp_thres = 0.02):
     vis_img = img.copy()
 
-    for i, segment in enumerate(skeleton):
+    for i, segment in enumerate(SKELETON):
         point1_id = segment[0]
         point2_id = segment[1]
 
@@ -67,7 +67,7 @@ def draw_heatmap(img, img_heatmap):
     color_heatmap = cv2.applyColorMap(cv2.convertScaleAbs(norm_heatmap,1), cv2.COLORMAP_MAGMA)
     return cv2.addWeighted(img, 0.4, color_heatmap, 0.6, 0)
 
-def vis_3d_multiple_skeleton(kpt_3d, kpt_3d_vis, filename=None):
+def vis_3d_multiple_skeleton(kpt_3d, kpt_3d_vis, skeleton=SKELETON, filename=None):
     ax.cla()
     for l in range(len(skeleton)):
         i1 = skeleton[l][0]
@@ -86,25 +86,46 @@ def vis_3d_multiple_skeleton(kpt_3d, kpt_3d_vis, filename=None):
             if kpt_3d_vis[n,i2,0] > 0:
                 ax.scatter(kpt_3d[n,i2,0], kpt_3d[n,i2,2], -kpt_3d[n,i2,1], color=colors_plt[l], marker='o', s=40)
     #  Hide grid lines
-    ax.w_zaxis.line.set_lw(0.)
-    ax.xaxis.pane.fill = False
-    ax.xaxis.pane.set_edgecolor('white')
-    ax.yaxis.pane.fill = False
-    ax.yaxis.pane.set_edgecolor('white')
-    # ax.zaxis.pane.fill = False
-    ax.zaxis.pane.set_edgecolor('white')
-    ax.grid(False)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
-    ax.view_init(elev=7, azim=-74)
-    plt.tight_layout()
+    # ax.w_zaxis.line.set_lw(0.)
+    # ax.xaxis.pane.fill = False
+    # ax.xaxis.pane.set_edgecolor('white')
+    # ax.yaxis.pane.fill = False
+    # ax.yaxis.pane.set_edgecolor('white')
+    # # ax.zaxis.pane.fill = False
+    # ax.zaxis.pane.set_edgecolor('white')
+    # ax.grid(False)
+    # ax.set_xticks([])
+    # ax.set_yticks([])
+    # ax.set_zticks([])
+    # ax.view_init(elev=7, azim=-74)
+    # plt.tight_layout()
+
+    ax.set_xlabel("x")
+    ax.set_ylabel("z")
+    ax.set_zlabel("y")
+    # ax.set_ylim(500, 2500)
+    # ax.set_zlim(-400, 500)
+
+    depth_scale_ratio = 3
+    min_depth = kpt_3d[:, :, 2].min()
+    max_depth = kpt_3d[:, :, 2].max()
+    mean_depth = (min_depth + max_depth) / 2
+    diff_depth = max_depth - min_depth
+    ax.set_ylim(mean_depth - depth_scale_ratio*diff_depth, mean_depth + depth_scale_ratio*diff_depth)
+
+    # azims = [(0, 180), (0, 90), (-90, 0), (-45, 90)]
+    # for i in range(len(azims)):
+    #     ax.view_init(elev=azims[i][0], azim=azims[i][1])
+    #     plt.savefig(f"elev_{i}.jpg")
+
+    # import sys
+    # sys.exit(0)
 
     fig.canvas.draw()
     img_3dpos = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8,sep='')
     img_3dpos = img_3dpos.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
-# img is rgb, convert to opencv's default bgr
+    # img is rgb, convert to opencv's default bgr
     img_3dpos = cv2.cvtColor(img_3dpos,cv2.COLOR_RGB2BGR)
 
     return img_3dpos
