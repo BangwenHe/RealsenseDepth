@@ -30,6 +30,31 @@ def get_realsense_perspective_matrix_vertical():
     return perspective_matrix
 
 
+def get_realsense_affine_matrix(is_vertical=True):
+    if is_vertical:
+        return get_realsense_affine_matrix_vertical()
+    else:
+        return get_realsense_affine_matrix_horizontal()
+
+
+def get_realsense_affine_matrix_horizontal():
+    src = np.float32([[74, 109], [37, 654], [841, 128]]) / 1.5
+    dst = np.float32([[201, 206], [177, 541], [691, 217]]) / 1.5
+    affine_matrix = cv2.getAffineTransform(src, dst)
+
+    return affine_matrix
+
+
+def get_realsense_affine_matrix_vertical():
+    # src = np.float32([[79, 41], [75, 796], [585, 801]]) / 1.5
+    # dst = np.float32([[182, 221], [179, 700], [503, 699]]) / 1.5
+    src = np.float32([[31, 390], [38, 640], [421, 390]]) / 1.5
+    dst = np.float32([[155, 424], [159, 579], [397, 427]]) / 1.5
+    affine_matrix = cv2.getAffineTransform(src, dst)
+
+    return affine_matrix
+
+
 def gather_depth_by_idx(depth_map: np.ndarray, idx_2d: np.ndarray):
     assert len(idx_2d.shape) == 3, f"{idx_2d.shape} should be 3, now {len(idx_2d.shape)}"
     num_person, num_keypoints, num_axis = idx_2d.shape
