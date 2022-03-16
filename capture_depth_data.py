@@ -109,7 +109,7 @@ if __name__ == "__main__":
             # Show images
             cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
             cv2.imshow('RealSense', hybrid_image)
-            cv2.waitKey(1)
+            cv2.waitKey(0)
 
             i += 1
             video_writer.write(color_image)
@@ -119,7 +119,5 @@ if __name__ == "__main__":
                 break
 
     finally:
-        # np.save("test.npy", np.asarray(depths))
-
         # Stop streaming
         pipeline.stop()
