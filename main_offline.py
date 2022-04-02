@@ -31,13 +31,16 @@ if __name__ == "__main__":
     # npy_filepath = "data/offline_vertical2.npy"
     # video_filepath = "data/offline_sit.mp4"
     # npy_filepath = "data/offline_sit.npy"
-    video_filepath = "data/offline_2p.mp4"
-    npy_filepath = "data/offline_2p.npy"
+    # video_filepath = "data/offline_2p.mp4"
+    # npy_filepath = "data/offline_2p.npy"
     # video_filepath = "data/offline_far.mp4"
     # npy_filepath = "data/offline_far.npy"
     # video_filepath = "data/offline_1.mp4"
     # npy_filepath = "data/offline_1.npy"
-    output_dir = "output_2p"
+    video_filepath = "data/offline_square.mp4"
+    npy_filepath = "data/offline_square.npy"
+    # output_dir = "output_2p"
+    output_dir = "output_square"
     os.makedirs(output_dir, exist_ok=True)
 
     perspective_matrix = get_realsense_perspective_matrix(is_vertical=True)
@@ -103,7 +106,12 @@ if __name__ == "__main__":
                     gt_cam_3d = np.zeros_like(gt_3d)
                     for j in range(gt_cam_3d.shape[0]):
                         gt_cam_3d[j] = pixel2cam(gt_3d[j], [604.607, 604.648], [321.509, 239.94])
-                    gt_3d_image = vis_3d_multiple_skeleton(gt_cam_3d, np.ones_like(gt_cam_3d), coco_skeleton)
+
+                    # gt_3d_image = vis_3d_multiple_skeleton(gt_cam_3d, np.ones_like(gt_cam_3d), coco_skeleton)
+                    gt_cam_3d = merge_keypoints(gt_cam_3d, "coco")
+                    gt_3d_image = vis_3d_multiple_skeleton(gt_cam_3d, np.ones_like(gt_cam_3d), skeleton)
+                    pose_gt_2d = merge_keypoints(gt_2d, "coco")
+                    vis_image_gt = HourglassModel.visualize(vis_image, pose_gt_2d)
                     vis_image_gt_3d = cv2.warpPerspective(vis_image_gt, perspective_matrix, (480, 640))
                     vis_image_gt_3d = cv2.addWeighted(vis_image_gt_3d, 0.7, depth_colormap, 0.3, 0.0)
                     vis_image_gt_3d = cv2.resize(vis_image_gt_3d, (1600, 1200))
@@ -112,7 +120,10 @@ if __name__ == "__main__":
 
                     mhp_3d = output_pose_3d.copy()
                     mhp_3d[:, :, 1] = -mhp_3d[:, :, 1]
-                    mhp_3d_image = vis_3d_multiple_skeleton(mhp_3d, np.ones_like(output_pose_3d))
+                    mhp_3d = merge_keypoints(mhp_3d, "muco")
+                    mhp_3d_image = vis_3d_multiple_skeleton(mhp_3d, np.ones_like(output_pose_3d), skeleton)
+                    pose_mhp_2d = merge_keypoints(output_pose_2d, "muco")
+                    vis_image_mhp = HourglassModel.visualize(vis_image, pose_mhp_2d)
                     vis_image_mhp_3d = cv2.warpPerspective(vis_image_mhp, perspective_matrix, (480, 640))
                     vis_image_mhp_3d = cv2.addWeighted(vis_image_mhp_3d, 0.7, depth_colormap, 0.3, 0.0)
                     vis_image_mhp_3d = cv2.resize(vis_image_mhp_3d, (1600, 1200))

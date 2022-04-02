@@ -62,7 +62,7 @@ def gather_depth_by_idx(depth_map: np.ndarray, idx_2d: np.ndarray):
     person_depth = np.zeros((num_person, num_keypoints))
     for i in range(num_person):
         for j in range(num_keypoints):
-            person_depth[i][j] = depth_map[idx_2d[i][j][1]][idx_2d[i][j][0]]
+            person_depth[i][j] = depth_map[int(idx_2d[i][j][1])][int(idx_2d[i][j][0])]
 
     return person_depth
 
@@ -96,13 +96,14 @@ def merge_keypoints(keypoints, dataset_type: str):
     if dataset_type == "coco":
         keypoints_thorax = np.mean(keypoints[:, 5:7], axis=1)
         keypoints_head = np.mean(keypoints[:, 3:5], axis=1)
-        keypoints_head_top = keypoints_thorax + (keypoints_head - keypoints_thorax) * 2
+        # keypoints_head_top = keypoints_thorax + (keypoints_head - keypoints_thorax) * 2
+        keypoints_head_top = keypoints_head
         rearrange_idx = np.array([5, 7, 9, 6, 8, 10, 11, 13, 15, 12, 14, 16])
         keypoints_limb = keypoints[:, rearrange_idx]
     elif dataset_type == "muco":
         keypoints_head = keypoints[:, 16]
         keypoints_thorax = keypoints[:, 1]
-        keypoints_head_top = keypoints[:, 0]
+        keypoints_head_top = keypoints[:, 16]
         rearrange_idx = np.array([5, 6, 7, 2, 3, 4, 11, 12, 13, 8, 9, 10])
         keypoints_limb = keypoints[:, rearrange_idx]
     elif dataset_type == "mpii":

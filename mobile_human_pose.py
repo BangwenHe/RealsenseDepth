@@ -1,33 +1,46 @@
-from ntpath import join
 import sys
 import cv2
 import numpy as np
-import onnx
+import math
 import onnxruntime as ort
 from scipy.special import softmax
-from imread_from_url import imread_from_url
+import torch
+from torch.nn.parallel.data_parallel import DataParallel
 
 from utils_pose_estimation import pixel2cam, crop_image, joint_num, draw_skeleton, draw_heatmap, \
     vis_3d_multiple_skeleton
 from rootnet3d.common.utils.pose_utils import process_bbox
+from rootnet3d.main.model import get_root_net
+from rootnet3d.main.config import cfg as rootnet_cfg
+from rootnet3d.common.utils.pose_utils import process_bbox
 from rootnet3d.data.dataset import generate_patch_image
+from rootnet3d.data.dataset import generate_patch_image
+from detector import build_default_detector
 
 
 class MobileHumanPose():
-    def __init__(self, model_path, focal=None, princpt=None):
+    def __init__(self, model_path, rootnet_model_path=None, focal=None, princpt=None):
         if focal is None:
-            self.focal = [604.607, 604.648]
+            # self.focal = [555.81213379, 558.08325195]
+            self.focal = [5.7338766306695265e+02, 5.6518389767714302e+02]
 
         if princpt is None:
-            self.princpt = [321.509, 239.94]
+            # self.princpt = [237.59299549, 317.35248184]
+            self.princpt = [2.3906536993316706e+02, 3.1886820634590987e+02]
 
         # Initialize model
-        self.original_img_height, self.original_img_width = (480, 640)
         self.model = self.initialize_model(model_path)
         
         # obtain from original config file
         self.depth_dim = 64
         self.bbox_3d_shape = (2000, 2000, 2000)
+
+        if rootnet_model_path is not None:
+            self.rootnet = get_root_net(rootnet_cfg, False)
+            self.rootnet = DataParallel(self.rootnet).cuda()
+            ckpt = torch.load(rootnet_model_path)
+            self.rootnet.load_state_dict(ckpt['network'])
+            self.rootnet.eval()
 
     # def __call__(self, image, bbox, abs_depth=1.0):
     #     return self.estimate_pose(image, bbox, abs_depth)
@@ -124,16 +137,33 @@ class MobileHumanPose():
     def estimate_pose_3d(self, img, bboxes):
         bboxes = bboxes[:, 0:4]
         original_img = img.copy()
+        # original_img = cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB)
+        original_img_height, original_img_width = original_img.shape[:2]
 
         person_num = len(bboxes)
+        root_depth_list = np.zeros(person_num)
         output_pose_2d = np.zeros((person_num, joint_num, 2))
         output_pose_3d = np.zeros((person_num, joint_num, 3))
         output_scores = np.zeros((person_num, joint_num))
 
         for n in range(person_num):
-            bbox = process_bbox(np.array(bboxes[n]), self.original_img_width, self.original_img_height)
+            bbox = process_bbox(np.array(bboxes[n]), original_img_width, original_img_height)
             img, img2bb_trans = generate_patch_image(original_img, bbox, False, 0.0)
+            cv2.imwrite(f"mhp_crop_{n}.jpg", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
             img_tensor = self.transform_img(img)
+
+            k_value = np.array(
+                [math.sqrt(rootnet_cfg.bbox_real[0] * rootnet_cfg.bbox_real[1] * self.focal[0] * self.focal[1] / (
+                        bbox[2] * bbox[3]))]).astype(np.float32)
+            k_value = torch.FloatTensor(np.array([k_value])).cuda()[None, :]
+
+            if hasattr(self, "rootnet"):
+                # rootnet inference
+                with torch.no_grad():
+                    root_3d = self.rootnet(torch.from_numpy(img_tensor), k_value)
+                
+                root_3d = root_3d[0].cpu().numpy()
+                root_depth_list[n] = root_3d[2]
 
             output = self.inference(img_tensor)
             pose_3d, scores = self.soft_argmax(output)
@@ -147,7 +177,7 @@ class MobileHumanPose():
             output_pose_2d[n] = pose_3d[:,:2].copy()
 
             # get root-relative continous depth
-            pose_3d[:,2] = (pose_3d[:,2] / self.depth_dim * 2 - 1) * (self.bbox_3d_shape[0]/2)
+            pose_3d[:,2] = (pose_3d[:,2] / self.depth_dim * 2 - 1) * (self.bbox_3d_shape[0]/2) + root_depth_list[n]
             pose_3d = pixel2cam(pose_3d, self.focal, self.princpt)
             output_pose_3d[n] = pose_3d.copy()
             output_scores[n] = scores.copy()
@@ -192,3 +222,42 @@ class MobileHumanPose():
             vis_img = draw_skeleton(vis_img, pose, score)
         
         return vis_img
+
+
+if __name__ == "__main__":
+    detector = build_default_detector("nanodet-m.yml", "nanodet_m.ckpt", "cuda:0")
+    model = MobileHumanPose("mobile_human_pose_working_well_256x256.onnx")
+    print(model.input_shape, model.output_shape)
+
+    import cv2
+    import glob
+    # video_cap = cv2.VideoCapture("data/offline_2p.mp4")
+    # # video_cap = cv2.VideoCapture("data/offline_square.mp4")
+    # # video_cap = cv2.VideoCapture("data/offline_far.mp4")
+    # # video_cap = cv2.VideoCapture("data/offline_sit.mp4")
+    # video_cap.set(1, 306)
+    # # # video_cap.set(1, 15)
+    # # video_cap.set(1, 40)
+    # _, frame = video_cap.read()
+
+    # images_paths = glob.glob("data/0317/2p/left_original_*.png")
+    images_paths = glob.glob("accuracy_test_data/exp3/phone_camera/left*.png")
+
+    for i in range(len(images_paths)):
+        frame = cv2.imread(images_paths[i])
+        frame = np.rot90(frame, 3)
+
+        detector_image = frame.copy()
+        hg_image = frame.copy()
+
+        meta, bboxes = detector.inference(detector_image)
+        vis_image = detector.visualize(bboxes[0], meta, detector.cfg.class_names, 0.5)
+        filtered_bbox = np.array(bboxes[0][0])
+        filtered_bbox = filtered_bbox[filtered_bbox[:, -1] > 0.5]
+
+        pose_2d, _, _ = model(hg_image, filtered_bbox)
+        # print(pose_2d.shape)
+        vis_image = model.visualize(vis_image, pose_2d, np.ones_like(pose_2d))
+
+        cv2.imwrite("frame.jpg", frame)
+        cv2.imwrite(f"output_mhp/mhp_sit_{i}.jpg", vis_image)

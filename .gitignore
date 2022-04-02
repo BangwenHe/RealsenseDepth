@@ -8,6 +8,10 @@
 *.yml
 *.mp4
 
+*.jpg
+*.png
+*.npy
+
 data/
 
 output*/

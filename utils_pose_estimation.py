@@ -1,3 +1,4 @@
+from builtins import all
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -67,7 +68,8 @@ def draw_heatmap(img, img_heatmap):
     color_heatmap = cv2.applyColorMap(cv2.convertScaleAbs(norm_heatmap,1), cv2.COLORMAP_MAGMA)
     return cv2.addWeighted(img, 0.4, color_heatmap, 0.6, 0)
 
-def vis_3d_multiple_skeleton(kpt_3d, kpt_3d_vis, skeleton=SKELETON, filename=None):
+def vis_3d_multiple_skeleton(kpt_3d, kpt_3d_vis, skeleton=SKELETON, filename=None, 
+                            model_type="hg", output_dir="output_viewpoints", all_angle=False):
     ax.cla()
     for l in range(len(skeleton)):
         i1 = skeleton[l][0]
@@ -85,13 +87,16 @@ def vis_3d_multiple_skeleton(kpt_3d, kpt_3d_vis, skeleton=SKELETON, filename=Non
                 ax.scatter(kpt_3d[n,i1,0], kpt_3d[n,i1,2], -kpt_3d[n,i1,1], color=colors_plt[l], marker='o', s=40)
             if kpt_3d_vis[n,i2,0] > 0:
                 ax.scatter(kpt_3d[n,i2,0], kpt_3d[n,i2,2], -kpt_3d[n,i2,1], color=colors_plt[l], marker='o', s=40)
+
+            if kpt_3d[n,i1,2] == 5:
+                ax.scatter(kpt_3d[n,i1,0], kpt_3d[n,i1,2], -kpt_3d[n,i1,1], color=((0, 0, 0)), marker='d', s=40)
     #  Hide grid lines
     # ax.w_zaxis.line.set_lw(0.)
     # ax.xaxis.pane.fill = False
     # ax.xaxis.pane.set_edgecolor('white')
     # ax.yaxis.pane.fill = False
     # ax.yaxis.pane.set_edgecolor('white')
-    # # ax.zaxis.pane.fill = False
+    # ax.zaxis.pane.fill = False
     # ax.zaxis.pane.set_edgecolor('white')
     # ax.grid(False)
     # ax.set_xticks([])
@@ -100,18 +105,56 @@ def vis_3d_multiple_skeleton(kpt_3d, kpt_3d_vis, skeleton=SKELETON, filename=Non
     # ax.view_init(elev=7, azim=-74)
     # plt.tight_layout()
 
-    ax.set_xlabel("x")
-    ax.set_ylabel("z")
-    ax.set_zlabel("y")
+    # https://stackoverflow.com/questions/29988241/python-hide-ticks-but-show-tick-labels
+    # plt.setp(ax.get_xticklabels(), visible=False)
+    # plt.setp(ax.get_yticklabels(), visible=False)
+    # plt.setp(ax.get_zticklabels(), visible=False)
+
+    ax.set_xlabel("$x$")
+    ax.set_ylabel("$z$")
+    ax.set_zlabel("$y$")
     # ax.set_ylim(500, 2500)
     # ax.set_zlim(-400, 500)
 
-    depth_scale_ratio = 3
+    model_type = model_type.lower()
+    assert model_type in ("mhp", "gt", "hg", "tp")
+
+    from tqdm import tqdm
+    # if model_type == "mhp":
+    #     depth_scale_ratio = 1
+    #     min_depth = kpt_3d[:, :, 2].min()
+    #     max_depth = kpt_3d[:, :, 2].max()
+    #     mean_depth = (min_depth + max_depth) / 2
+    #     diff_depth = max_depth - min_depth
+    #     ax.set_ylim(mean_depth - depth_scale_ratio*diff_depth, mean_depth + depth_scale_ratio*diff_depth)
+
+    # elif model_type == "hg":
+    #     depth_scale_ratio = 1
+    #     min_depth = kpt_3d[:, :, 2].min()
+    #     max_depth = kpt_3d[:, :, 2].max()
+    #     mean_depth = (min_depth + max_depth) / 2
+    #     diff_depth = max_depth - min_depth
+    #     ax.set_ylim(mean_depth - depth_scale_ratio*diff_depth, mean_depth + depth_scale_ratio*diff_depth)
+
+    # elif model_type == "tp":
+    depth_scale_ratio = 1
     min_depth = kpt_3d[:, :, 2].min()
     max_depth = kpt_3d[:, :, 2].max()
     mean_depth = (min_depth + max_depth) / 2
     diff_depth = max_depth - min_depth
     ax.set_ylim(mean_depth - depth_scale_ratio*diff_depth, mean_depth + depth_scale_ratio*diff_depth)
+
+    x_scale_ratio = 0.45
+    min_x = kpt_3d[:, :, 0].min()
+    max_x = kpt_3d[:, :, 0].max()
+    mean_x = (min_x + max_x) / 2
+    diff_x = max_x - min_x
+    ax.set_xlim(mean_x - x_scale_ratio*diff_x, mean_x + x_scale_ratio*diff_x)
+
+    if all_angle:
+        for i in tqdm(range(0, 360)):
+            ax.view_init(elev=7, azim=i)
+            plt.savefig(f"{output_dir}/{model_type}_axim_{i}.jpg")
 
     # azims = [(0, 180), (0, 90), (-90, 0), (-45, 90)]
     # for i in range(len(azims)):
@@ -121,8 +164,9 @@ def vis_3d_multiple_skeleton(kpt_3d, kpt_3d_vis, skeleton=SKELETON, filename=Non
     # import sys
     # sys.exit(0)
 
+    ax.view_init(elev=7, azim=120)
     fig.canvas.draw()
-    img_3dpos = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8,sep='')
+    img_3dpos = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
     img_3dpos = img_3dpos.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
     # img is rgb, convert to opencv's default bgr
